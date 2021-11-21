@@ -28,20 +28,20 @@ type SigninForm struct {
 }
 
 func Signin(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if err := AlreadySignedIn(r); err == nil {
-		w.Header().Set("Location", "/index")
+	var err error
+	if err = AlreadySignedIn(r); err == nil {
+		utils.SetLocation(w, "/index")
 		w.WriteHeader(http.StatusSeeOther)
 		return
 	}
 	if r.Method == "GET" {
 		Tmpl.ExecuteTemplate(w, "signin", nil)
 	} else if r.Method == "POST" {
-		var err error
-
 		form := SigninForm{}
 		if err = json.NewDecoder(r.Body).Decode(&form); err != nil {
 			log.Println("error:", err)
-			w.WriteHeader(http.StatusInternalServerError)
+			re := utils.NewInternalServerError(err)
+			re.Write(w)
 			return
 		}
 
@@ -50,7 +50,8 @@ func Signin(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 				fmt.Println("error field:", e.Field())
 				fmt.Println("error:", e)
 			}
-			w.WriteHeader(http.StatusUnauthorized)
+			re := utils.NewUnauthorized(err)
+			re.Write(w)
 			return
 		}
 
@@ -58,14 +59,16 @@ func Signin(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		var u *models.User
 		if u = inmemory.FindUser(form.Email); u == nil {
 			// error, cannot find the user
-			w.WriteHeader(http.StatusUnauthorized)
+			re := utils.NewUnauthorized(err)
+			re.Write(w)
 			return
 		}
 
 		// validate the password
 		if err := bcrypt.CompareHashAndPassword(u.HashPassword, []byte(form.Password)); err != nil {
 			// error, the password is not valid
-			w.WriteHeader(http.StatusUnauthorized)
+			re := utils.NewUnauthorized(err)
+			re.Write(w)
 			return
 		}
 
@@ -82,15 +85,15 @@ func Signin(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 
 		log.Println("user signedin:", u.UUID)
 
-		// redirect to /index
-		w.Header().Set("Location", "/index")
+		utils.SetLocation(w, "/index")
 		w.WriteHeader(http.StatusOK)
 	}
 }
 
 func Signup(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if err := AlreadySignedIn(r); err == nil {
-		w.Header().Set("Location", "/index")
+	var err error
+	if err = AlreadySignedIn(r); err == nil {
+		utils.SetLocation(w, "/index")
 		w.WriteHeader(http.StatusSeeOther)
 		return
 	}
@@ -99,12 +102,11 @@ func Signup(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		Tmpl.ExecuteTemplate(w, "signup", nil)
 	} else if r.Method == "POST" {
 		var u *models.User
-		var err error
-
 		form := SignupForm{}
 		if err = json.NewDecoder(r.Body).Decode(&form); err != nil {
 			log.Println("error:", err)
-			w.WriteHeader(http.StatusInternalServerError)
+			re := utils.NewInternalServerError(err)
+			re.Write(w)
 			return
 		}
 
@@ -113,13 +115,15 @@ func Signup(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 				fmt.Println("error field:", e.Field())
 				fmt.Println("error:", e)
 			}
-			w.WriteHeader(http.StatusUnauthorized)
+			re := utils.NewUnauthorized(err)
+			re.Write(w)
 			return
 		}
 
 		if u = inmemory.FindUser(form.Email); u != nil {
 			// Error, the user already exist
-			w.WriteHeader(http.StatusUnauthorized)
+			re := utils.NewUnauthorized(err)
+			re.Write(w)
 			return
 		}
 
@@ -128,7 +132,7 @@ func Signup(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		u.Email = form.Email
 		var hash []byte
 		if hash, err = bcrypt.GenerateFromPassword([]byte(form.Password), bcrypt.MinCost); err != nil {
-			re := utils.RestError{Message: "error: internal server error", Status: http.StatusInternalServerError, Error: "internal_error"}
+			re := utils.NewInternalServerError(err)
 			re.Write(w)
 			return
 		}
@@ -137,22 +141,23 @@ func Signup(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 
 		log.Println("user signedup:", u.UUID)
 
-		w.Header().Set("Location", "/signin")
+		utils.SetLocation(w, "/signin")
 		w.WriteHeader(http.StatusOK)
 	}
 }
 
 func Signout(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	if err := AlreadySignedIn(r); err != nil {
-		w.Header().Set("Location", "/signin")
-		w.WriteHeader(http.StatusSeeOther)
+		re := utils.NewUnauthorized(err)
+		re.Write(w)
 		return
 	}
 
 	cs, err := r.Cookie(session)
 	if err != nil {
 		log.Println("err, unable to find session cookie")
-		w.WriteHeader(http.StatusInternalServerError)
+		re := utils.NewInternalServerError(err)
+		re.Write(w)
 		return
 	}
 
@@ -165,6 +170,6 @@ func Signout(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	http.SetCookie(w, cs)
 	log.Println("delete session cookie", id)
 
-	w.Header().Set("Location", "/signin")
-	w.WriteHeader(http.StatusSeeOther)
+	utils.SetLocation(w, "/signin")
+	w.WriteHeader(http.StatusOK)
 }

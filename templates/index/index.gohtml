@@ -4,10 +4,34 @@
     <head>
         <meta charset="UTF-8">
         <title>Index</title>
+        <script src="https://code.jquery.com/jquery-3.5.0.js"></script>
     </head>
     <body>
         <H1>Index</H1>
-        <a href="/signout">Logout</a>
+        <a href="/signout" id="signout" name="signout">Logout</a>
+        <div class="log"></div>
+        <script type="text/javascript">
+            // TODO: create a function
+            // TODO: Subscribe the event when javascript is ready
+            $("#signout").click(function(event) {
+                event.preventDefault();
+                $('.log').append('logout is processing<br>');
+                var url = $(this).attr('href');
+                $.ajax({
+                    url: url,
+                    type: 'GET'
+                })
+                .done(function( data, textStatus, jqXHR ) {
+                    $('.log').append('logout success<br>');
+                    if ((textStatus == "success") && (jqXHR.status == 200)) {
+                        window.location.replace(jqXHR.getResponseHeader("Location"))
+                    }
+                })
+                .fail(function(data) {
+                    $('.log').append('failed<br>');
+                });
+            });
+        </script>
     </body>
 </html>
 {{end}}

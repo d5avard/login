@@ -48,8 +48,11 @@
                     contentType: "application/json",
                     processData: false
                 })
-                .done(function(data) {
+                .done(function( data, textStatus, jqXHR ) {
                     $('.log').append('signin success<br>');
+                    if ((textStatus == "success") && (jqXHR.status == 200)) {
+                        window.location.replace(jqXHR.getResponseHeader("Location"))
+                    }
                 })
                 .fail(function(data) {
                     $('.log').append('failed<br>');

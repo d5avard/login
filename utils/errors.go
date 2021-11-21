@@ -12,6 +12,14 @@ type RestError struct {
 	Error   string `json:"error"`
 }
 
+func NewInternalServerError(err error) *RestError {
+	return &RestError{Message: err.Error(), Status: http.StatusInternalServerError, Error: "internal_server_error"}
+}
+
+func NewUnauthorized(err error) *RestError {
+	return &RestError{Message: err.Error(), Status: http.StatusUnauthorized, Error: "unauthorized"}
+}
+
 func (re *RestError) Write(w http.ResponseWriter) {
 	SetContentType(w, ContentTypeJSON)
 	w.WriteHeader(re.Status)

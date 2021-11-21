@@ -7,6 +7,7 @@ import (
 )
 
 const (
+	HeaderLocation    = "Location"
 	HeaderContentType = "Content-Type"
 )
 
@@ -18,8 +19,12 @@ const (
 	ContentTypeText   = "text/plain; charset=utf-8"
 )
 
-func SetContentType(w http.ResponseWriter, ct string) {
-	w.Header().Add(HeaderContentType, ct)
+func SetContentType(w http.ResponseWriter, value string) {
+	w.Header().Add(HeaderContentType, value)
+}
+
+func SetLocation(w http.ResponseWriter, value string) {
+	w.Header().Add(HeaderLocation, value)
 }
 
 func NotFound(w http.ResponseWriter, r *http.Request, p httprouter.Params) {

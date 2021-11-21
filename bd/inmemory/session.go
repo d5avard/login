@@ -26,7 +26,7 @@ func DeleteSession(id string) {
 		return
 	}
 	delete(SessionDB, id)
-	log.Println("delete session:", id)
+	log.Println("delete session in memory:", id)
 }
 
 func FindSession(email string) string {
