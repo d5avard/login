@@ -1,68 +1,71 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/d5avard/login/bd/inmemory"
 	"github.com/d5avard/login/models"
+	"github.com/d5avard/login/utils"
 	"github.com/go-playground/validator"
 	"github.com/julienschmidt/httprouter"
 	uuid "github.com/satori/go.uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type formSignup struct {
-	email           string `validate:"required,email"`
-	password        string `validate:"required,eqfield=ConfirmPassword"`
-	confirmPassword string `validate:"required"`
+type SignupForm struct {
+	Email           string `json:"email" validate:"required,email"`
+	Password        string `json:"password" validate:"required,eqfield=PasswordConfirm"`
+	PasswordConfirm string `json:"passwordconfirm" validate:"required"`
 }
 
-type formSignin struct {
-	email    string `validate:"required,email"`
-	password string `validate:"required"`
+type SigninForm struct {
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
+	Loggedin bool   `json:"loggedin"`
 }
 
 func Signin(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if AlreadySignedIn(r) {
+	if err := AlreadySignedIn(r); err == nil {
 		w.Header().Set("Location", "/index")
 		w.WriteHeader(http.StatusSeeOther)
 		return
 	}
-
 	if r.Method == "GET" {
 		Tmpl.ExecuteTemplate(w, "signin", nil)
 	} else if r.Method == "POST" {
 		var err error
 
-		// get parameters
-		r.ParseForm()
-		form := formSignin{}
-		form.email = r.FormValue("email")
-		form.password = r.FormValue("password")
+		form := SigninForm{}
+		if err = json.NewDecoder(r.Body).Decode(&form); err != nil {
+			log.Println("error:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 
 		if err = Validate.Struct(form); err != nil {
 			for _, e := range err.(validator.ValidationErrors) {
-				fmt.Println("Error field:", e.Field())
+				fmt.Println("error field:", e.Field())
+				fmt.Println("error:", e)
 			}
-
-			Tmpl.ExecuteTemplate(w, "signup", nil)
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		// find the user
 		var u *models.User
-		if u = inmemory.FindUser(form.email); u == nil {
+		if u = inmemory.FindUser(form.Email); u == nil {
 			// error, cannot find the user
-			Tmpl.ExecuteTemplate(w, "signin", nil)
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		// validate the password
-		if err := bcrypt.CompareHashAndPassword(u.HashPassword, []byte(form.password)); err != nil {
+		if err := bcrypt.CompareHashAndPassword(u.HashPassword, []byte(form.Password)); err != nil {
 			// error, the password is not valid
-			Tmpl.ExecuteTemplate(w, "signin", nil)
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
@@ -77,14 +80,16 @@ func Signin(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		}
 		http.SetCookie(w, &cs)
 
+		log.Println("user signedin:", u.UUID)
+
 		// redirect to /index
 		w.Header().Set("Location", "/index")
-		w.WriteHeader(http.StatusSeeOther)
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
 func Signup(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if AlreadySignedIn(r) {
+	if err := AlreadySignedIn(r); err == nil {
 		w.Header().Set("Location", "/index")
 		w.WriteHeader(http.StatusSeeOther)
 		return
@@ -96,48 +101,49 @@ func Signup(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		var u *models.User
 		var err error
 
-		form := formSignup{}
-		form.email = r.FormValue("email")
-		form.password = r.FormValue("password")
-		form.confirmPassword = r.FormValue("password-validate")
-
-		if err = Validate.Struct(form); err != nil {
-			for _, e := range err.(validator.ValidationErrors) {
-				fmt.Println("Error field:", e.Field())
-			}
-
-			Tmpl.ExecuteTemplate(w, "signup", nil)
+		form := SignupForm{}
+		if err = json.NewDecoder(r.Body).Decode(&form); err != nil {
+			log.Println("error:", err)
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		if u = inmemory.FindUser(form.email); u != nil {
+		if err = Validate.Struct(form); err != nil {
+			for _, e := range err.(validator.ValidationErrors) {
+				fmt.Println("error field:", e.Field())
+				fmt.Println("error:", e)
+			}
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		if u = inmemory.FindUser(form.Email); u != nil {
 			// Error, the user already exist
-			Tmpl.ExecuteTemplate(w, "signup", nil)
+			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
 		u = &models.User{}
 		u.UUID = uuid.NewV4().String()
-		u.Email = form.email
+		u.Email = form.Email
 		var hash []byte
-		if hash, err = bcrypt.GenerateFromPassword([]byte(form.password), bcrypt.MinCost); err != nil {
-			http.Error(w, "err, internal server error", http.StatusInternalServerError)
+		if hash, err = bcrypt.GenerateFromPassword([]byte(form.Password), bcrypt.MinCost); err != nil {
+			re := utils.RestError{Message: "error: internal server error", Status: http.StatusInternalServerError, Error: "internal_error"}
+			re.Write(w)
 			return
 		}
 		u.HashPassword = hash
-		inmemory.AddUser(u)
-		c := http.Cookie{
-			Name:  u.UUID,
-			Value: "true",
-		}
-		http.SetCookie(w, &c)
+		utils.CreateUser(w, u)
+
+		log.Println("user signedup:", u.UUID)
+
 		w.Header().Set("Location", "/signin")
-		w.WriteHeader(http.StatusSeeOther)
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
 func Signout(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if !AlreadySignedIn(r) {
+	if err := AlreadySignedIn(r); err != nil {
 		w.Header().Set("Location", "/signin")
 		w.WriteHeader(http.StatusSeeOther)
 		return
