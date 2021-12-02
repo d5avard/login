@@ -20,6 +20,10 @@ func NewUnauthorized(err error) *RestError {
 	return &RestError{Message: err.Error(), Status: http.StatusUnauthorized, Error: "unauthorized"}
 }
 
+func NewStatusBadRequest(err error) *RestError {
+	return &RestError{Message: err.Error(), Status: http.StatusBadRequest, Error: "bad_request"}
+}
+
 func (re *RestError) Write(w http.ResponseWriter) {
 	SetContentType(w, ContentTypeJSON)
 	w.WriteHeader(re.Status)

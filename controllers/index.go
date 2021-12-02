@@ -11,7 +11,7 @@ import (
 func Index(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	// check if the user is already signedin
 	var err error
-	if err = AlreadySignedIn(r); err != nil {
+	if err = utils.AlreadySignedIn(r); err != nil {
 		re := utils.NewUnauthorized(err)
 		re.Write(w)
 		return

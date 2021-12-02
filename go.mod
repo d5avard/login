@@ -3,6 +3,7 @@ module github.com/d5avard/login
 go 1.15
 
 require (
+	github.com/go-playground/assert/v2 v2.0.1
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/go-playground/validator/v10 v10.9.0 // indirect
 	github.com/gofrs/uuid v4.1.0+incompatible

@@ -1,38 +1,58 @@
 package inmemory
 
-import "log"
+import (
+	"errors"
+	"log"
+)
 
-var SessionDB map[string]string
+var sessionDB map[string]string
 
 func init() {
-	SessionDB = map[string]string{}
+	sessionDB = map[string]string{}
 }
 
-func AddSession(id string, email string) {
-	SessionDB[id] = email
-	log.Println("create session:", id)
+func AddSession(sessionId string, userId string) {
+	sessionDB[sessionId] = userId
+	log.Println("create session:", sessionId)
 }
 
-func DeleteSession(id string) {
-	if len(SessionDB) < 1 {
-		return
+func GetSessionById(sessionId string) string {
+	return sessionDB[sessionId]
+}
+
+func SessionExists(sessionId string) bool {
+	_, ok := sessionDB[sessionId]
+	return ok
+}
+
+func DeleteSession(id string) error {
+	if sessionDB == nil || len(sessionDB) < 1 {
+		return errors.New("error: no session exists")
 	}
 
 	if id == "" {
-		return
+		return errors.New("error: session id is not valid")
 	}
 
-	if _, ok := SessionDB[id]; !ok {
-		return
+	if _, ok := sessionDB[id]; !ok {
+		return errors.New("error: session id not exists")
 	}
-	delete(SessionDB, id)
+
+	delete(sessionDB, id)
 	log.Println("delete session in memory:", id)
+	return nil
 }
 
-func FindSession(email string) string {
-	for _, e := range SessionDB {
-		if e == email {
-			return e
+func DeleteAllSession() {
+	for k := range sessionDB {
+		delete(sessionDB, k)
+	}
+}
+
+func FindSession(userId string) string {
+	for k, v := range sessionDB {
+		if v == userId {
+			return k
 		}
 	}
 	return ""

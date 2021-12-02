@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,19 +18,19 @@ import (
 
 type SignupForm struct {
 	Email           string `json:"email" validate:"required,email"`
-	Password        string `json:"password" validate:"required,eqfield=PasswordConfirm"`
-	PasswordConfirm string `json:"passwordconfirm" validate:"required"`
+	Password        string `json:"password" validate:"required,eqfield=PasswordConfirm,max=32"`
+	PasswordConfirm string `json:"passwordconfirm" validate:"required,max=32"`
 }
 
 type SigninForm struct {
 	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Password string `json:"password" validate:"required,max=32"`
 	Loggedin bool   `json:"loggedin"`
 }
 
 func Signin(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	var err error
-	if err = AlreadySignedIn(r); err == nil {
+	if err = utils.AlreadySignedIn(r); err == nil {
 		utils.SetLocation(w, "/index")
 		w.WriteHeader(http.StatusSeeOther)
 		return
@@ -40,7 +41,7 @@ func Signin(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		form := SigninForm{}
 		if err = json.NewDecoder(r.Body).Decode(&form); err != nil {
 			log.Println("error:", err)
-			re := utils.NewInternalServerError(err)
+			re := utils.NewStatusBadRequest(err)
 			re.Write(w)
 			return
 		}
@@ -59,7 +60,7 @@ func Signin(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		var u *models.User
 		if u = inmemory.FindUser(form.Email); u == nil {
 			// error, cannot find the user
-			re := utils.NewUnauthorized(err)
+			re := utils.NewUnauthorized(errors.New("cannot find the user"))
 			re.Write(w)
 			return
 		}
@@ -72,16 +73,7 @@ func Signin(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 			return
 		}
 
-		// create session in memory
-		inmemory.AddSession(u.UUID, u.Email)
-
-		// write a cookie session
-		cs := http.Cookie{
-			Name:   session,
-			Value:  u.UUID,
-			MaxAge: 60 * 30,
-		}
-		http.SetCookie(w, &cs)
+		utils.CreateSession(w, u)
 
 		log.Println("user signedin:", u.UUID)
 
@@ -92,7 +84,7 @@ func Signin(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 
 func Signup(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	var err error
-	if err = AlreadySignedIn(r); err == nil {
+	if err = utils.AlreadySignedIn(r); err == nil {
 		utils.SetLocation(w, "/index")
 		w.WriteHeader(http.StatusSeeOther)
 		return
@@ -127,6 +119,10 @@ func Signup(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 			return
 		}
 
+		// create a session cookie  (session, userid)
+		// create a user cookie (id, userid)
+		// add session in memory (sessionid, userid)
+		// add user in memory (userid, jsonstring)
 		u = &models.User{}
 		u.UUID = uuid.NewV4().String()
 		u.Email = form.Email
@@ -147,27 +143,26 @@ func Signup(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 }
 
 func Signout(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	if err := AlreadySignedIn(r); err != nil {
+	var err error
+	var c *http.Cookie
+	if err = utils.AlreadySignedIn(r); err != nil {
 		re := utils.NewUnauthorized(err)
 		re.Write(w)
 		return
 	}
 
-	cs, err := r.Cookie(session)
-	if err != nil {
-		log.Println("err, unable to find session cookie")
+	if c, err = utils.FindSesionCookie(r); err != nil {
 		re := utils.NewInternalServerError(err)
 		re.Write(w)
-		return
 	}
 
-	inmemory.DeleteSession(cs.Value)
-	log.Println("delete session", cs.Value)
+	inmemory.DeleteSession(c.Value)
+	log.Println("delete session", c.Value)
 
-	id := cs.Value
-	cs.Value = ""
-	cs.MaxAge = -1
-	http.SetCookie(w, cs)
+	id := c.Value
+	c.Value = ""
+	c.MaxAge = -1
+	http.SetCookie(w, c)
 	log.Println("delete session cookie", id)
 
 	utils.SetLocation(w, "/signin")

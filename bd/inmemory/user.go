@@ -6,19 +6,23 @@ import (
 	"github.com/d5avard/login/models"
 )
 
-var UserDB map[string]*models.User
+var userDB map[string]*models.User
 
 func init() {
-	UserDB = map[string]*models.User{}
+	userDB = map[string]*models.User{}
 }
 
 func AddUser(user *models.User) {
-	UserDB[user.UUID] = user
+	userDB[user.UUID] = user
 	log.Println("create user:", user.UUID)
 }
 
+func GetUserById(userid string) *models.User {
+	return userDB[userid]
+}
+
 func FindUser(user string) *models.User {
-	for _, u := range UserDB {
+	for _, u := range userDB {
 		if u.Email == user {
 			return u
 		}
