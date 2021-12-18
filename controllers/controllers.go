@@ -5,7 +5,7 @@ import (
 	"log"
 	"path"
 
-	"github.com/d5avard/login/utils"
+	"github.com/d5avard/diary/utils"
 	"github.com/go-playground/validator"
 )
 

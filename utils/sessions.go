@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/d5avard/login/bd/inmemory"
-	"github.com/d5avard/login/models"
+	"github.com/d5avard/diary/bd/inmemory"
+	"github.com/d5avard/diary/models"
 	uuid "github.com/satori/go.uuid"
 )
 

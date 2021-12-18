@@ -1,0 +1,4 @@
+export VERSION=0.0.5
+export GOBUILDOUTPUT=server
+export GOOGLE_APPLICATION_PROJECT_ID=danysavard-ca-327813
+export GOOGLE_APPLICATION_CREDENTIALS=$HOME/.secrets/danysavard-ca-327813-b6a61cbc8201.json

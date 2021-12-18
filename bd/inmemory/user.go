@@ -3,7 +3,7 @@ package inmemory
 import (
 	"log"
 
-	"github.com/d5avard/login/models"
+	"github.com/d5avard/diary/models"
 )
 
 var userDB map[string]*models.User

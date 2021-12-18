@@ -7,9 +7,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/d5avard/login/bd/inmemory"
-	"github.com/d5avard/login/models"
-	"github.com/d5avard/login/utils"
+	"github.com/d5avard/diary/bd/inmemory"
+	"github.com/d5avard/diary/models"
+	"github.com/d5avard/diary/utils"
 	"github.com/go-playground/validator"
 	"github.com/julienschmidt/httprouter"
 	uuid "github.com/satori/go.uuid"
